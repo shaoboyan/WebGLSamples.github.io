@@ -36,6 +36,7 @@ var g_requestId;
 var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 var g_frameData;
 var g_vrDisplay;
+var g_vrUi;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -908,7 +909,6 @@ function initialize() {
   setupBubbles(particleSystem);
   var bubbleTimer = 0;
   var bubbleIndex = 0;
-
   var lightRay = setupLightRay();
 
   var then = 0.0;
@@ -1244,8 +1244,9 @@ function initialize() {
     var height = Math.abs(top - bottom);
     var xOff = width * g.net.offset[0] * g.net.offsetMult;
     var yOff = height * g.net.offset[1] * g.net.offsetMult;
+    var uiMatrix = new Float32Array(16);
     if (g_vrDisplay && g_vrDisplay.isPresenting && pose.position) {
-      // Using head-neck model in VR mode due to unclear distance measurement(vr return position using meters),
+      // Using head-neck model in VR mode because of unclear distance measurement(vr return position using meters),
       // user could see around but couldn't move around.
       eyePosition[0] = g.globals.eyeRadius;
       eyePosition[1] = g.globals.eyeHeight;
@@ -1253,6 +1254,11 @@ function initialize() {
 
       fast.matrix4.copy(projection, projectionMatrix);
       calculateViewMatrix(viewInverse, pose.orientation, eyePosition);
+
+      // Hard coded FPS translation vector and pin the whole UI in front of the user in VR mode. This hard coded position 
+      // vector used only once here.
+      calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
+      g_vrUi.render(projection, fast.matrix4.inverse(uiMatrix, uiMatrix), [pose.orientation]);
     } else {
       fast.matrix4.frustum(
         projection,
@@ -1700,7 +1706,6 @@ function initialize() {
 
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
-
     gl.colorMask(true, true, true, true);
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
@@ -1711,6 +1716,43 @@ function initialize() {
       }
       g_vrDisplay.getFrameData(g_frameData);
       if (g_vrDisplay.isPresenting) {
+
+        /* VR UI has two mode, menu mode is the mirror of control panel of 
+         * aquarium and non-menu mode may presents fps(could be turn off) in front of user. These two
+         * modes are controlled by 'isMenuMode' flag and this flag is set by any keyboard event or gamepad
+         * button click event.
+        */
+
+        g_vrUi.setFps(g_fpsTimer.averageFPS);
+
+        // Query gamepad button click event. 
+        g_vrUi.queryGamepadStatus();
+
+        if (g_vrUi.isMenuMode) {
+
+          // When VR UI in menu mode, UI needs a cursor help user do the selection operation. Cursor uses
+          // head-neck model which means a point in front of user and user could move the point by rotating their head(with HMD).
+          // A label is chosen when user looks at the label for 2 seconds.
+          // TODO : add gamepad support.
+
+          // Jquery selector description.
+          var selectorDescription;
+
+          // VR UI returns labels that are chosen in VR mode.
+          var clickedLabel = g_vrUi.queryClickedLabel([0, 0, 0], g_frameData.pose.orientation);
+          if (clickedLabel != null) {
+            if (clickedLabel.isAdvancedSettings) {
+              selectorDescription = "#optionsContainer > div:contains(" + clickedLabel.name + ")";
+              $(selectorDescription).click();
+            } else if (clickedLabel.name == "options") {
+              $("#options").click();
+            } else {
+              selectorDescription = "#setSetting" + clickedLabel.name;
+              $(selectorDescription).click();
+            }
+          }
+        }
+      
         gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
         render(elapsedTime, g_frameData.leftProjectionMatrix, g_frameData.pose);
 
@@ -2038,11 +2080,14 @@ var VR = (function() {
           if (g_vrDisplay.capabilities.canPresent) {
             vrButton = addButton("Enter VR", "E", getCurrentUrl() + "/vr_assets/button.png", onRequestPresent);
           }
+          g_vrUi = new Ui(gl, g_numFish);
+          g_vrUi.load("./vr_assets/ui/config.js");
 
           window.addEventListener('vrdisplaypresentchange', onPresentChange, false);
           window.addEventListener('vrdisplayactivate', onRequestPresent, false);
           window.addEventListener('vrdisplaydeactivate', onExitPresent, false);
           window.addEventListener('resize', function() {onResize();}, false);
+          window.addEventListener('keydown', function() { g_vrUi.isMenuMode = !g_vrUi.isMenuMode; }, false);
         } else {
           console.log("WebVR supported, but no VRDisplays found.")
         }
