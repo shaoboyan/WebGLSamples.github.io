@@ -36,6 +36,7 @@ var g_requestId;
 var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 var g_frameData;
 var g_vrDisplay;
+var g_vrStats;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -908,6 +909,7 @@ function initialize() {
   setupBubbles(particleSystem);
   var bubbleTimer = 0;
   var bubbleIndex = 0;
+  g_vrStats = new VRStats(gl);
 
   var lightRay = setupLightRay();
 
@@ -1244,6 +1246,7 @@ function initialize() {
     var height = Math.abs(top - bottom);
     var xOff = width * g.net.offset[0] * g.net.offsetMult;
     var yOff = height * g.net.offset[1] * g.net.offsetMult;
+    var statViewMatrix = new Float32Array(16);
     if (g_vrDisplay && g_vrDisplay.isPresenting && pose.position) {
       // Using head-neck model in VR mode due to unclear distance measurement(vr return position using meters),
       // user could see around but couldn't move around.
@@ -1253,6 +1256,9 @@ function initialize() {
 
       fast.matrix4.copy(projection, projectionMatrix);
       calculateViewMatrix(viewInverse, pose.orientation, eyePosition);
+
+      // Hard coded FPS translation vector to pin it in front of the user.
+      g_vrStats.render(projection, fast.matrix4.inverse(statViewMatrix, fast.matrix4.translation(statViewMatrix, [0, 0, 6])));
     } else {
       fast.matrix4.frustum(
         projection,
@@ -1700,7 +1706,6 @@ function initialize() {
 
     g_fpsTimer.update(elapsedTime);
     fpsElem.innerHTML = g_fpsTimer.averageFPS;
-
     gl.colorMask(true, true, true, true);
     gl.clearColor(0,0.8,1,0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
@@ -1711,6 +1716,8 @@ function initialize() {
       }
       g_vrDisplay.getFrameData(g_frameData);
       if (g_vrDisplay.isPresenting) {
+        g_vrStats.setFps(g_fpsTimer.averageFPS);
+
         gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
         render(elapsedTime, g_frameData.leftProjectionMatrix, g_frameData.pose);
 
