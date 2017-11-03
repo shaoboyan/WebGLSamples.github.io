@@ -37,6 +37,7 @@ var g_numFish = [1, 100, 500, 1000, 5000, 10000, 15000, 20000, 25000, 30000];
 var g_frameData;
 var g_vrDisplay;
 var g_vrStats;
+var g_ui;
 
 //g_debug = true;
 //g_drawOnce = true;
@@ -910,6 +911,8 @@ function initialize() {
   var bubbleTimer = 0;
   var bubbleIndex = 0;
   g_vrStats = new VRStats(gl);
+  g_ui = new Ui(gl, g_numFish);
+  g_ui.load("./vr_assets/ui/config.js");
 
   var lightRay = setupLightRay();
 
@@ -1247,6 +1250,7 @@ function initialize() {
     var xOff = width * g.net.offset[0] * g.net.offsetMult;
     var yOff = height * g.net.offset[1] * g.net.offsetMult;
     var statViewMatrix = new Float32Array(16);
+    var uiMatrix = new Float32Array(16);
     if (g_vrDisplay && g_vrDisplay.isPresenting && pose.position) {
       // Using head-neck model in VR mode due to unclear distance measurement(vr return position using meters),
       // user could see around but couldn't move around.
@@ -1258,7 +1262,9 @@ function initialize() {
       calculateViewMatrix(viewInverse, pose.orientation, eyePosition);
 
       // Hard coded FPS translation vector to pin it in front of the user.
-      g_vrStats.render(projection, fast.matrix4.inverse(statViewMatrix, fast.matrix4.translation(statViewMatrix, [0, 0, 6])));
+      //g_vrStats.render(projection, fast.matrix4.inverse(statViewMatrix, fast.matrix4.translation(statViewMatrix, [0, 0, 6])));
+      calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
+      g_ui.render(projection, fast.matrix4.inverse(uiMatrix, uiMatrix), [pose.orientation]);
     } else {
       fast.matrix4.frustum(
         projection,
@@ -1282,7 +1288,10 @@ function initialize() {
         target,
         up);
     }
-
+      var uiMatrix = new Float32Array(16);
+    //calculateViewMatrix(uiMatrix, pose.orientation, [0, 0, 10]);
+    //g_ui.render(projection, fast.matrix4.inverse(uiMatrix, fast.matrix4.translation(uiMatrix, [0, 0, 6])));
+    //var uiMatrix = new Float32Array(16);
     if (g.net.slave) {
       // compute X fov from y fov
       var fovy = math.degToRad(g.globals.fieldOfView * g.net.fovFudge);
@@ -1295,6 +1304,7 @@ function initialize() {
     fast.matrix4.inverse(view, viewInverse);
     fast.matrix4.mul(viewProjection, view, projection);
     fast.matrix4.inverse(viewProjectionInverse, viewProjection);
+    //g_ui.render(projection, fast.matrix4.inverse(uiMatrix, fast.matrix4.translation(uiMatrix, [0, 0, 16])));
 
     fast.matrix4.copy(skyView, view);
     skyView[12] = 0;
@@ -1716,7 +1726,8 @@ function initialize() {
       }
       g_vrDisplay.getFrameData(g_frameData);
       if (g_vrDisplay.isPresenting) {
-        g_vrStats.setFps(g_fpsTimer.averageFPS);
+        //g_vrStats.setFps(g_fpsTimer.averageFPS);
+        g_ui.setFps(g_fpsTimer.averageFPS);
 
         gl.viewport(0, 0, canvas.width * 0.5, canvas.height);
         render(elapsedTime, g_frameData.leftProjectionMatrix, g_frameData.pose);
