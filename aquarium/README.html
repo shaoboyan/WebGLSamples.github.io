@@ -104,6 +104,12 @@ machine running node.js</p>
 
 <p>Note: you might have to stop and start node.js which you can do by
 pressing Ctrl+Break twice in it's window</p>
+<h2>VR Mode</h2>
+<ul>
+    <li> If your system support VR, click 'enter vr' button to present aquarium in VR HMD.
+    <li> In VR mode, user could use menu in HMD to manage aquarium. Any keyboard pressed event or button clicked in VR controller will present or vanish the menu.
+    <li> When menu presenting, user could move cursor(in front of view) by rotating head. Looking at a label for 1.5 seconds means 'click'.
+</ul>
 <h2>Implemenation Notes:</h2>
 <p>The aquarium runs almost entirely based on a clock. That means the position of the camera and every fish will be the same across machines if their clocks are in sync. When in networked mode each machine keeps its clock in sync by periodically asking the server for the current time. Otherwise, using node.js and the websocket library the master sends a JSON string with any new settings to the server. The server then broadcasts those settings to each of the machines.</p>
 </body>
